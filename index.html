@@ -1,0 +1,522 @@
+import React, { useState } from 'react';
+import { Calculator, Building2, Receipt, AlertCircle, FileText, User } from 'lucide-react';
+
+const InvoiceHelper = () = {
+   --- State Management ---
+  const [invoiceType, setInvoiceType] = useState('triplicate');  'triplicate' (三聯)  'duplicate' (二聯)
+  
+  const [buyerName, setBuyerName] = useState('');
+  const [taxId, setTaxId] = useState('');
+  
+  const [inclusiveAmount, setInclusiveAmount] = useState('');  含稅總計
+  const [exclusiveAmount, setExclusiveAmount] = useState('');  未稅銷售額
+  const [taxAmount, setTaxAmount] = useState('');              稅額
+  const [taxType, setTaxType] = useState('taxable');           應稅(5%), 零稅率(0%), 免稅(0%)
+
+  const [itemName, setItemName] = useState('一式');
+  const [quantity, setQuantity] = useState(1);
+
+   --- Constants ---
+  const TAX_RATE = 0.05;
+
+   --- Calculation Logic ---
+   由含稅價回推未稅價與稅額
+  const calculateFromInclusive = (amount, type = taxType) = {
+    const val = parseInt(amount, 10);
+    if (isNaN(val)  val = 0) {
+      setExclusiveAmount('');
+      setTaxAmount('');
+      return;
+    }
+
+    if (type === 'taxable') {
+      const exclusive = Math.round(val  (1 + TAX_RATE));
+      const tax = val - exclusive;
+      setExclusiveAmount(exclusive.toString());
+      setTaxAmount(tax.toString());
+    } else {
+      setExclusiveAmount(val.toString());
+      setTaxAmount('0');
+    }
+  };
+
+   由未稅價計算含稅價與稅額
+  const calculateFromExclusive = (amount, type = taxType) = {
+    const val = parseInt(amount, 10);
+    if (isNaN(val)  val = 0) {
+      setInclusiveAmount('');
+      setTaxAmount('');
+      return;
+    }
+
+    if (type === 'taxable') {
+      const tax = Math.round(val  TAX_RATE);
+      const inclusive = val + tax;
+      setTaxAmount(tax.toString());
+      setInclusiveAmount(inclusive.toString());
+    } else {
+      setTaxAmount('0');
+      setInclusiveAmount(val.toString());
+    }
+  };
+
+   處理輸入改變
+  const handleInclusiveChange = (e) = {
+    const val = e.target.value.replace(Dg, '');  只允許數字
+    setInclusiveAmount(val);
+    calculateFromInclusive(val);
+  };
+
+  const handleExclusiveChange = (e) = {
+    const val = e.target.value.replace(Dg, '');
+    setExclusiveAmount(val);
+    calculateFromExclusive(val);
+  };
+
+  const handleTaxTypeChange = (e) = {
+    const newType = e.target.value;
+    setTaxType(newType);
+    if (exclusiveAmount) {
+      calculateFromExclusive(exclusiveAmount, newType);
+    }
+  };
+
+   --- Helpers for Preview ---
+  const currentYearROC = new Date().getFullYear() - 1911;
+  const currentMonth = new Date().getMonth() + 1;
+  const currentDay = new Date().getDate();
+
+   數字轉國字大寫
+  const toChineseNumeral = (numStr) = {
+    const mapping = {
+      '0' '零', '1' '壹', '2' '貳', '3' '參', '4' '肆', 
+      '5' '伍', '6' '陸', '7' '柒', '8' '捌', '9' '玖'
+    };
+    return mapping[numStr]  '';
+  };
+
+   將總額轉為 9 碼陣列 (億千萬...元) 供格子使用
+  const getTotalDigits = () = {
+    const total = inclusiveAmount  '0';
+    const padded = total.padStart(9, ' '); 
+    return padded.split('');
+  };
+
+  const getTaxIdDigits = () = {
+    const id = taxId.padEnd(8, ' ');
+    return id.split('').slice(0, 8);
+  };
+
+   數字加千分位
+  const formatNumber = (numStr) = {
+    if (!numStr) return '';
+    return parseInt(numStr, 10).toLocaleString();
+  };
+
+   發票明細顯示邏輯：三聯式顯示未稅，二聯式顯示含稅
+  const rowBaseAmount = invoiceType === 'triplicate'  exclusiveAmount  inclusiveAmount;
+
+  return (
+    div className=min-h-screen bg-slate-50 p-4 mdp-8 font-sans text-slate-800
+      
+      { Header }
+      div className=max-w-6xl mx-auto mb-6
+        h1 className=text-3xl font-bold text-slate-900 flex items-center gap-3
+          Receipt className=text-blue-600 w-8 h-8 
+          手開發票小幫手
+        h1
+        p className=text-slate-500 mt-2 ml-11快速推算稅額，即時預覽手開發票格式p
+      div
+
+      { Invoice Type Tabs }
+      div className=max-w-6xl mx-auto mb-8
+        div className=flex flex-col mdflex-row bg-slate-20050 p-1.5 rounded-xl w-full max-w-4xl
+          button
+            onClick={() = setInvoiceType('triplicate')}
+            className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 px-4 text-center rounded-lg transition-all ${
+              invoiceType === 'triplicate'
+                 'bg-white text-blue-700 shadow-sm border border-slate-200'
+                 'text-slate-500 hovertext-slate-700'
+            }`}
+          
+            div className=flex items-center gap-2 font-bold text-[15px]
+              Building2 className=w-4 h-4 
+              三聯式發票 
+            div
+            span className={`text-[11px] smtext-xs leading-relaxed ${invoiceType === 'triplicate'  'text-blue-500'  'opacity-75'}`}
+              (主要開給公司、行號或營利機關團體)
+            span
+          button
+          button
+            onClick={() = setInvoiceType('duplicate')}
+            className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 px-4 text-center rounded-lg transition-all ${
+              invoiceType === 'duplicate'
+                 'bg-white text-blue-700 shadow-sm border border-slate-200'
+                 'text-slate-500 hovertext-slate-700'
+            }`}
+          
+            div className=flex items-center gap-2 font-bold text-[15px]
+              User className=w-4 h-4 
+              二聯式發票 
+            div
+            span className={`text-[11px] smtext-xs leading-relaxed ${invoiceType === 'duplicate'  'text-blue-500'  'opacity-75'}`}
+              (主要開給個人、沒有統編的機關團體或學校、政府單位或非營利組織)
+            span
+          button
+        div
+      div
+
+      div className=max-w-6xl mx-auto flex flex-col lgflex-row gap-8
+        
+        { Left Column Input Panel }
+        div className=w-full lgw-13 flex flex-col gap-6
+          
+          { Buyer Info Card }
+          div className=bg-white p-6 rounded-2xl shadow-sm border border-slate-200 transition-all
+            h2 className=text-lg font-semibold mb-4 flex items-center gap-2 text-slate-800
+              {invoiceType === 'triplicate'  Building2 className=w-5 h-5 text-blue-500   User className=w-5 h-5 text-blue-500 }
+              買受人資訊
+            h2
+            div className=space-y-4
+              {invoiceType === 'triplicate' && (
+                div className=animate-in fade-in slide-in-from-top-2 duration-300
+                  label className=block text-sm font-medium text-slate-600 mb-1
+                    統一編號 span className=text-red-500span
+                  label
+                  input 
+                    type=text 
+                    maxLength=8
+                    value={taxId}
+                    onChange={(e) = setTaxId(e.target.value.replace(Dg, ''))}
+                    className=w-full px-4 py-2 border border-slate-300 rounded-lg focusring-2 focusring-blue-500 focusborder-blue-500 outline-none transition-all
+                    placeholder=請輸入 8 碼統編
+                  
+                div
+              )}
+              div
+                label className=block text-sm font-medium text-slate-600 mb-1
+                  {invoiceType === 'triplicate'  '公司名稱 (抬頭)'  '買受人名稱 (選填)'}
+                label
+                input 
+                  type=text 
+                  value={buyerName}
+                  onChange={(e) = setBuyerName(e.target.value)}
+                  className=w-full px-4 py-2 border border-slate-300 rounded-lg focusring-2 focusring-blue-500 focusborder-blue-500 outline-none transition-all
+                  placeholder={invoiceType === 'triplicate'  請輸入買方公司名稱  一般消費者可留白}
+                
+              div
+            div
+          div
+
+          { Amount Calculator Card }
+          div className=bg-white p-6 rounded-2xl shadow-sm border border-slate-200
+            h2 className=text-lg font-semibold mb-4 flex items-center gap-2 text-slate-800
+              Calculator className=w-5 h-5 text-blue-500 
+              金額計算 span className=text-xs font-normal text-slate-400 ml-2(自動推算)span
+            h2
+            
+            div className=space-y-5
+              div
+                label className=block text-sm font-medium text-slate-600 mb-1稅率別label
+                select 
+                  value={taxType}
+                  onChange={handleTaxTypeChange}
+                  className=w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-lg focusring-2 focusring-blue-500 outline-none cursor-pointer
+                
+                  option value=taxable應稅 (5%)option
+                  option value=zero零稅率 (0%)option
+                  option value=free免稅 (0%)option
+                select
+              div
+
+              div className=grid grid-cols-2 gap-4 pt-2
+                div className=col-span-2
+                  label className=block text-sm font-medium text-slate-600 mb-1收款總計 (含稅)label
+                  div className=relative
+                    span className=absolute left-3 top-12 -translate-y-12 text-slate-400$span
+                    input 
+                      type=text 
+                      value={formatNumber(inclusiveAmount)}
+                      onChange={handleInclusiveChange}
+                      className=w-full pl-8 pr-4 py-2.5 text-lg font-bold text-blue-700 bg-blue-5050 border border-blue-200 rounded-lg focusring-2 focusring-blue-500 outline-none transition-all
+                      placeholder=0
+                    
+                  div
+                div
+
+                div
+                  label className=block text-sm font-medium text-slate-600 mb-1銷售額 (未稅)label
+                  input 
+                    type=text 
+                    value={formatNumber(exclusiveAmount)}
+                    onChange={handleExclusiveChange}
+                    className=w-full px-4 py-2 border border-slate-300 rounded-lg focusring-2 focusring-blue-500 outline-none
+                    placeholder=0
+                  
+                div
+                
+                div
+                  label className=block text-sm font-medium text-slate-600 mb-1營業稅額label
+                  input 
+                    type=text 
+                    value={formatNumber(taxAmount)}
+                    readOnly
+                    className=w-full px-4 py-2 bg-slate-100 border border-slate-200 text-slate-500 rounded-lg cursor-not-allowed
+                    placeholder=0
+                  
+                div
+              div
+            div
+          div
+
+        div
+
+        { Right Column Invoice Preview }
+        div className=w-full lgw-23 flex flex-col
+          div className=bg-white p-6 mdp-8 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto relative min-h-[600px]
+            div className=flex items-center gap-2 mb-6 text-slate-700 font-medium
+              FileText className=w-5 h-5 
+              發票預覽
+              span className=ml-auto text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-full flex items-center gap-1
+                AlertCircle className=w-3 h-3 
+                僅供參考，請依實際手開發票本為準
+              span
+            div
+
+            { --- Invoice Visual Canvas --- }
+            div className=min-w-[700px] border-2 border-blue-600 p-6 bg-[#fcfdfd] shadow-inner font-serif text-slate-800 animate-in fade-in duration-500
+              
+              { Header section }
+              div className=text-center mb-6 relative
+                h2 className=text-2xl font-bold tracking-[1em] ml-[1em] text-blue-800統一發票h2
+                h3 className=text-lg font-bold tracking-widest text-blue-800 mt-1
+                  （{invoiceType === 'triplicate'  '三聯式'  '二聯式'}）
+                h3
+                div className=absolute right-0 top-0 text-sm tracking-widest text-blue-600 font-sans
+                  div className=mb-1第　　聯div
+                  div　　聯div
+                div
+                div className=mt-4 text-blue-700 text-lg tracking-widest
+                  中華民國 span className=text-black inline-block w-12 border-b border-slate-400 text-center{currentYearROC}span 年 span className=text-black inline-block w-8 border-b border-slate-400 text-center{currentMonth}span 月 span className=text-black inline-block w-8 border-b border-slate-400 text-center{currentDay}span 日
+                div
+              div
+
+              { Buyer section }
+              div className=mb-4 text-lg
+                div className=flex mb-3 items-center
+                  span className=w-24 tracking-widest買受人：span
+                  span className=flex-1 border-b border-slate-400 px-2 font-bold text-blue-900 min-h-[1.5rem] relative
+                    {buyerName}
+                    {invoiceType === 'duplicate' && !buyerName && (
+                      span className=absolute text-slate-300 text-sm font-sans left-2 top-1 italic font-normal可省略span
+                    )}
+                  span
+                div
+                {invoiceType === 'triplicate' && (
+                  div className=flex items-center animate-in slide-in-from-top-1 fade-in duration-300
+                    span className=w-24 tracking-widest統一編號：span
+                    div className=flex border-2 border-slate-500 bg-white
+                      {getTaxIdDigits().map((digit, i) = (
+                        div key={i} className=w-8 h-8 flex items-center justify-center border-r border-slate-500 lastborder-r-0 text-xl font-mono text-blue-900 font-bold
+                          {digit}
+                        div
+                      ))}
+                    div
+                  div
+                )}
+              div
+
+              { Table section }
+              div className=flex flex-col text-center
+                
+                { Table Header }
+                div className=flex border-2 border-blue-800 font-bold tracking-widest bg-blue-5050
+                  div className=w-[40%] py-2 border-r border-blue-800品 名div
+                  div className=w-[10%] py-2 border-r border-blue-800數 量div
+                  div className=w-[15%] py-2 border-r border-blue-800單 價div
+                  div className=w-[20%] py-2 border-r border-blue-800金 額div
+                  div className=w-[15%] py-2備 註div
+                div
+
+                { Table Rows }
+                div className=border-l-2 border-r-2 border-blue-800
+                  {[...Array(5)].map((_, index) = (
+                    div key={index} className={`flex border-b border-slate-300 min-h-[2.5rem] items-center ${index === 4  'border-b-2 border-b-blue-800'  ''}`}
+                      div className=w-[40%] px-2 border-r border-slate-300 h-full flex items-center justify-start text-blue-900
+                        {index === 0  input value={itemName} onChange={e=setItemName(e.target.value)} className=w-full bg-transparent outline-none placeholder=輸入商品名稱  ''}
+                      div
+                      div className=w-[10%] px-1 border-r border-slate-300 h-full flex items-center justify-center font-mono
+                        {index === 0 && rowBaseAmount  quantity  ''}
+                      div
+                      div className=w-[15%] px-1 border-r border-slate-300 h-full flex items-center justify-end font-mono
+                        {index === 0 && rowBaseAmount  Math.round(rowBaseAmount  quantity).toLocaleString()  ''}
+                      div
+                      div className=w-[20%] px-2 border-r border-slate-300 h-full flex items-center justify-end font-mono font-bold text-blue-900
+                        {index === 0 && rowBaseAmount  parseInt(rowBaseAmount).toLocaleString()  ''}
+                      div
+                      div className=w-[15%] px-1 h-fulldiv
+                    div
+                  ))}
+                div
+
+                { --- Summary Section (Different for Triplicate vs Duplicate) --- }
+                
+                {invoiceType === 'triplicate'  (
+                   三聯式 Footer 
+                  div className=flex border-x-2 border-b-2 border-blue-800 animate-in fade-in duration-300
+                    div className=w-[65%] border-r-2 border-blue-800 flex flex-col
+                      div className=flex border-b border-slate-300 h-10
+                        div className=w-12 flex items-center justify-center tracking-widest border-r border-slate-300銷 售 額 合 計div
+                        div className=w-12div
+                      div
+                      div className=flex border-b-2 border-blue-800 h-10
+                        div className=w-12 flex items-center justify-center tracking-widest border-r border-slate-300營 業 稅div
+                        div className=w-12 flex
+                          div className=w-13 border-r border-slate-300 flex items-center justify-center text-xs relative
+                            應稅
+                            {taxType === 'taxable' && span className=absolute -bottom-1 font-bold text-blue-600 text-lgvspan}
+                          div
+                          div className=w-13 border-r border-slate-300 flex items-center justify-center text-xs relative
+                            零稅率
+                            {taxType === 'zero' && span className=absolute -bottom-1 font-bold text-blue-600 text-lgvspan}
+                          div
+                          div className=w-13 flex items-center justify-center text-xs relative
+                            免稅
+                            {taxType === 'free' && span className=absolute -bottom-1 font-bold text-blue-600 text-lgvspan}
+                          div
+                        div
+                      div
+                      div className=flex h-10 items-center pl-4 font-bold tracking-widest bg-blue-5030
+                        總 計
+                      div
+                    div
+
+                    div className=w-[20%] border-r-2 border-blue-800 flex flex-col font-mono font-bold text-blue-900 text-lg
+                      div className=border-b border-slate-300 h-10 flex items-center justify-end px-2
+                        {exclusiveAmount  parseInt(exclusiveAmount).toLocaleString()  ''}
+                      div
+                      div className=border-b-2 border-blue-800 h-10 flex items-center justify-end px-2
+                        {taxAmount  parseInt(taxAmount).toLocaleString()  ''}
+                      div
+                      div className=h-10 flex items-center justify-end px-2 bg-blue-5030
+                        {inclusiveAmount  parseInt(inclusiveAmount).toLocaleString()  ''}
+                      div
+                    div
+                    
+                    { Stamp Area }
+                    div className=w-[15%] relative text-slate-300 flex items-center justify-center text-sm p-2 bg-blue-5010
+                      營業人蓋用統一發票專用章
+                      div className=absolute inset-2 border-2 border-blue-20050 rounded flex items-center justify-center text-blue-20050 -rotate-6 font-bold text-xl pointer-events-none
+                        發票章
+                      div
+                    div
+                  div
+                )  (
+                   二聯式 Footer 
+                  div className=flex border-x-2 border-b-2 border-blue-800 animate-in fade-in duration-300
+                    div className=w-[85%] flex flex-col
+                      { Row 1 總計 }
+                      div className=flex h-10 border-b border-blue-800 bg-blue-5030
+                        div style={{ width '76.47%' }} className=flex items-center justify-center font-bold tracking-widest border-r border-blue-800 text-lg
+                          總　　　　計
+                        div
+                        div style={{ width '23.53%' }} className=flex items-center justify-end px-2 font-mono font-bold text-blue-900 text-lg
+                          {inclusiveAmount  parseInt(inclusiveAmount).toLocaleString()  ''}
+                        div
+                      div
+
+                      { Row 2 中文大寫 }
+                      div className=flex min-h-[3.5rem] border-b border-blue-800 items-stretch bg-white
+                        div className=w-24 border-r border-blue-800 flex items-center justify-center text-xs leading-tight
+                          總計新臺幣br(中文大寫)
+                        div
+                        div className=flex-1 flex justify-around items-center px-4 tracking-widest font-bold text-blue-900 text-lg
+                          {['億', '仟', '佰', '拾', '萬', '仟', '佰', '拾', '元'].map((unit, index) = {
+                            const digits = getTotalDigits();
+                            const char = digits[index];
+                            const hasValue = char !== ' ' && char !== '0';
+                            return (
+                              div key={index} className=flex items-baseline gap-2
+                                span className={`inline-block w-8 text-center border-b ${hasValue  'border-blue-900 text-blue-900'  'border-slate-300 text-slate-400'}`}
+                                  {hasValue  toChineseNumeral(char)  (char === '0' && index === 8  '零'  '')}
+                                span
+                                span className=text-slate-700 text-base{unit}span
+                              div
+                            )
+                          })}
+                        div
+                      div
+
+                      { Row 3 課稅別 }
+                      div className=flex h-10
+                        div className=w-24 border-r border-blue-800 flex items-center justify-center text-xs font-bold tracking-widest bg-blue-5030
+                          課 稅 別
+                        div
+                        div className=flex-1 flex text-sm
+                          div className=w-13 border-r border-slate-300 flex items-center justify-center relative
+                            應稅
+                            {taxType === 'taxable' && span className=absolute -bottom-1 font-bold text-blue-600 text-lgvspan}
+                          div
+                          div className=w-13 border-r border-slate-300 flex items-center justify-center relative
+                            零稅率
+                            {taxType === 'zero' && span className=absolute -bottom-1 font-bold text-blue-600 text-lgvspan}
+                          div
+                          div className=w-13 flex items-center justify-center relative
+                            免稅
+                            {taxType === 'free' && span className=absolute -bottom-1 font-bold text-blue-600 text-lgvspan}
+                          div
+                        div
+                      div
+                    div
+
+                    { Right Block (15%) Stamp for Duplicate }
+                    div className=w-[15%] border-l-2 border-blue-800 relative text-slate-300 flex flex-col items-center justify-center text-xs tracking-widest p-2 bg-blue-5010 text-center leading-loose
+                      營業人蓋用br統一發票br專用章
+                      div className=absolute inset-2 border-2 border-blue-20050 rounded flex items-center justify-center text-blue-20050 -rotate-6 font-bold text-xl pointer-events-none tracking-normal
+                        發票章
+                      div
+                    div
+                  div
+                )}
+
+                { Grand Total in Chinese (Only for Triplicate as Duplicate has it inside the summary block) }
+                {invoiceType === 'triplicate' && (
+                  div className=border-x-2 border-b-2 border-blue-800 flex items-stretch min-h-[3rem] bg-white animate-in fade-in
+                    div className=w-24 border-r border-blue-800 flex items-center justify-center text-xs leading-tight
+                      總計新臺幣br(中文大寫)
+                    div
+                    div className=flex-1 flex justify-around items-center px-4 tracking-widest font-bold text-blue-900 text-lg
+                      {['億', '仟', '佰', '拾', '萬', '仟', '佰', '拾', '元'].map((unit, index) = {
+                        const digits = getTotalDigits();
+                        const char = digits[index];
+                        const hasValue = char !== ' ' && char !== '0';
+                        return (
+                          div key={index} className=flex items-baseline gap-2
+                            span className={`inline-block w-8 text-center border-b ${hasValue  'border-blue-900 text-blue-900'  'border-slate-300 text-slate-400'}`}
+                              {hasValue  toChineseNumeral(char)  (char === '0' && index === 8  '零'  '')}
+                            span
+                            span className=text-slate-700 text-base{unit}span
+                          div
+                        )
+                      })}
+                    div
+                  div
+                )}
+
+              div
+              
+              { Footer Note }
+              div className=mt-2 text-xs text-slate-500 tracking-wider
+                ※應稅、零稅率、免稅之銷售額應分別開立統一發票，並應於各該欄打「v」。
+              div
+
+            div
+          div
+        div
+
+      div
+    div
+  );
+};
+
+export default InvoiceHelper;
